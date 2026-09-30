@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modelo TCP/IP y Encapsulamiento - Docente de Redes</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .layer-box { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .topo-node { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .pdu-chunk { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-full flex flex-col overflow-x-hidden">
+
+    <!-- HEADER INSTITUCIONAL -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm sticky top-0 z-40">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-600 p-2.5 rounded-2xl text-white shadow-md">
+                <i class="fa-solid fa-network-wired text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg md:text-xl font-extrabold tracking-tight text-slate-900">Simulador Didáctico: Encapsulamiento y Desencapsulamiento TCP/IP</h1>
+                <p class="text-xs text-slate-500 font-medium">Docente: <strong class="text-blue-700">Mgr. Gustavo Rojas Valdivia</strong> | Integración de Topología y Capas de Red</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="resetSimulation()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition flex items-center space-x-2 border border-slate-300">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Reiniciar</span>
+            </button>
+            <button onclick="toggleModal('infoModal')" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition flex items-center space-x-2 shadow-sm">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Guía Docente</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col p-4 md:p-6 gap-6 max-w-[1700px] mx-auto w-full">
+        
+        <!-- SECCIÓN 1: TOPOLOGÍA DE RED (Inspirada en el diagrama de Redes) -->
+        <div class="bg-white rounded-3xl p-5 border-2 border-slate-200 shadow-xl">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+                <h2 class="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-diagram-project text-blue-600"></i> Topología de Red Completa (Emisor ➔ Router Doméstico ➔ Módem DSL ➔ Internet ➔ Receptor)
+                </h2>
+                <span id="topoStatusBadge" class="text-xs font-bold px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200 shadow-sm">
+                    Estado: Inactivo / Listo
+                </span>
+            </div>
+
+            <!-- Nodos Topológicos -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 items-center py-2 px-1 bg-slate-50 rounded-2xl border border-slate-200">
+                
+                <!-- 1. PC Emisor -->
+                <div id="topo-pc" class="topo-node flex flex-col items-center p-3 rounded-2xl border border-slate-300 bg-white text-center shadow-sm">
+                    <div class="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md mb-2">
+                        <i class="fa-solid fa-desktop"></i>
+                    </div>
+                    <span class="font-bold text-xs text-slate-900">PC del Hogar</span>
+                    <span class="text-[10px] text-slate-500">192.168.1.10</span>
+                </div>
+
+                <!-- Enlace -->
+                <div class="hidden lg:flex items-center justify-center text-slate-300">
+                    <div class="h-1 w-full bg-slate-300 relative rounded">
+                        <div id="link1" class="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-blue-600 opacity-0 transition-all"></div>
+                    </div>
+                </div>
+
+                <!-- 2. Router Doméstico -->
+                <div id="topo-router" class="topo-node flex flex-col items-center p-3 rounded-2xl border border-slate-300 bg-white text-center shadow-sm">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-xl shadow-md mb-2">
+                        <i class="fa-solid fa-router"></i>
+                    </div>
+                    <span class="font-bold text-xs text-slate-900">Router Inalámbrico</span>
+                    <span class="text-[10px] text-slate-500">Gateway (Capa 3)</span>
+                </div>
+
+                <!-- Enlace -->
+                <div class="hidden lg:flex items-center justify-center text-slate-300">
+                    <div class="h-1 w-full bg-slate-300 relative rounded">
+                        <div id="link2" class="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-amber-500 opacity-0 transition-all"></div>
+                    </div>
+                </div>
+
+                <!-- 3. Módem DSL e Internet -->
+                <div id="topo-modem" class="topo-node flex flex-col items-center p-3 rounded-2xl border border-slate-300 bg-white text-center shadow-sm">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-md mb-2">
+                        <i class="fa-solid fa-cloud"></i>
+                    </div>
+                    <span class="font-bold text-xs text-slate-900">Módem & Cloud WAN</span>
+                    <span class="text-[10px] text-slate-500">Bits en el Medio</span>
+                </div>
+
+                <!-- Enlace -->
+                <div class="hidden lg:flex items-center justify-center text-slate-300">
+                    <div class="h-1 w-full bg-slate-300 relative rounded">
+                        <div id="link3" class="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-emerald-500 opacity-0 transition-all"></div>
+                    </div>
+                </div>
+
+                <!-- 4. Smartphone / Receptor -->
+                <div id="topo-phone" class="topo-node flex flex-col items-center p-3 rounded-2xl border border-slate-300 bg-white text-center shadow-sm">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md mb-2">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <span class="font-bold text-xs text-slate-900">Smartphone Receptor</span>
+                    <span class="text-[10px] text-slate-500">Destino Final</span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: CONTROL Y VISUALIZADOR PRINCIPAL -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- CONTROLES (4 Cols) -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                
+                <!-- Parámetros -->
+                <div class="bg-white rounded-3xl p-6 border-2 border-slate-200 shadow-xl flex flex-col gap-4">
+                    <h2 class="text-base font-bold text-blue-700 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders"></i> Panel de Control Didáctico
+                    </h2>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Mensaje de Aplicación (Payload):</label>
+                        <input type="text" id="payloadInput" value="Hola servidor web" oninput="updatePayloadText()" class="w-full bg-slate-50 border-2 border-slate-300 rounded-2xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-600 font-medium">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">IP Origen:</label>
+                            <input type="text" id="ipSrc" value="192.168.1.10" class="w-full bg-slate-50 border-2 border-slate-300 rounded-2xl px-3 py-2 text-xs font-mono text-slate-900">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">IP Destino:</label>
+                            <input type="text" id="ipDst" value="172.217.14.206" class="w-full bg-slate-50 border-2 border-slate-300 rounded-2xl px-3 py-2 text-xs font-mono text-slate-900">
+                        </div>
+                    </div>
+                    <button onclick="startSimulation()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-2xl shadow-lg transition flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Iniciar Simulación Completa</span>
+                    </button>
+                </div>
+
+                <!-- Botones de Paso a Paso -->
+                <div class="bg-white rounded-3xl p-6 border-2 border-slate-200 shadow-xl flex flex-col gap-4">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-step-forward text-blue-600"></i> Navegación por Capas
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <button onclick="prevStep()" id="prevBtn" disabled class="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 py-3 rounded-2xl text-xs font-bold border border-slate-300 transition">
+                            <i class="fa-solid fa-arrow-left"></i> Anterior
+                        </button>
+                        <button onclick="nextStep()" id="nextBtn" disabled class="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white py-3 rounded-2xl text-xs font-bold shadow-md transition">
+                            Siguiente <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-600 font-bold px-1">
+                        <span>Paso: <strong id="stepIndicator" class="text-blue-600 text-base">0 / 10</strong></span>
+                        <span id="currentModeBadge" class="bg-amber-50 text-amber-700 px-2.5 py-1 rounded-xl border border-amber-200">En Espera</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- DIAGRAMA VISUAL UNIFICADO ESTILO DIAPOSITIVA (8 Cols) -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                
+                <!-- Caja de Explicación Docente -->
+                <div class="bg-blue-50/90 rounded-3xl p-5 border-2 border-blue-200 shadow-lg">
+                    <h3 class="text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-chalkboard-user text-blue-600"></i> Explicación en Vivo del Proceso
+                    </h3>
+                    <p id="explanationText" class="text-sm text-slate-700 font-medium leading-relaxed">
+                        Bienvenido docente. Presiona <strong>"Iniciar Simulación Completa"</strong> y utiliza el botón <strong>Siguiente</strong> para mostrar exactamente cómo se encapsulan los datos en el emisor y cómo se desencapsulan en el receptor tal como en tus láminas.
+                    </p>
+                </div>
+
+                <!-- CONTENEDOR PRINCIPAL ESTILO DIAGRAMA DE LAS FOTOS -->
+                <div class="bg-white rounded-3xl p-6 border-2 border-slate-200 shadow-xl flex flex-col gap-6">
+                    
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                        <div id="slideTitleBox" class="bg-blue-600 text-white font-extrabold text-sm px-4 py-1.5 rounded-xl shadow-sm tracking-wide">
+                            ENVÍO DE DATOS: ENCAPSULAMIENTO
+                        </div>
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-500">
+                            <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200">Modelo TCP/IP</span>
+                        </div>
+                    </div>
+
+                    <!-- ESTRUCTURA CENTRAL: Lado Izquierdo (PDU y Paquetes) vs Lado Derecho (Capas y Términos) -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                        
+                        <!-- Lado Izquierdo: PDU en Ensamblaje / Desensamblaje (7 cols) -->
+                        <div class="md:col-span-7 flex flex-col gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 min-h-[360px] justify-center">
+                            
+                            <!-- Alerta / Aviso Animado -->
+                            <div class="flex items-center gap-3">
+                                <div id="alertBadge" class="bg-rose-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg shadow-sm flex items-center gap-1.5 opacity-90">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> <span id="alertText">Encapsulamiento Activo</span>
+                                </div>
+                            </div>
+
+                            <!-- PDU Visualizer Box (Las barras apiladas de las fotos) -->
+                            <div id="pduStackContainer" class="flex flex-col gap-2.5 w-full">
+                                <div class="text-slate-400 text-xs italic text-center py-8">Haz clic en Iniciar Simulación para ver el diagrama PDU...</div>
+                            </div>
+
+                        </div>
+
+                        <!-- Lado Derecho: Las 5 Capas TCP/IP Verticales (5 cols) -->
+                        <div class="md:col-span-5 flex flex-col gap-2">
+                            
+                            <!-- Capa 1: Aplicación -->
+                            <div id="layer-app" class="layer-box bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between opacity-40">
+                                <span class="text-xs font-extrabold text-blue-700">APLICACIÓN</span>
+                                <span id="term-app" class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-bold hidden">Datos / HTTP</span>
+                            </div>
+
+                            <!-- Capa 2: Transporte -->
+                            <div id="layer-trans" class="layer-box bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between opacity-40">
+                                <span class="text-xs font-extrabold text-blue-700">TRANSPORTE</span>
+                                <span id="term-trans" class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-bold hidden">Segmento</span>
+                            </div>
+
+                            <!-- Capa 3: Red -->
+                            <div id="layer-net" class="layer-box bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between opacity-40">
+                                <span class="text-xs font-extrabold text-blue-700">RED</span>
+                                <span id="term-net" class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-bold hidden">Paquete IP</span>
+                            </div>
+
+                            <!-- Capa 4: Enlace de Datos -->
+                            <div id="layer-link" class="layer-box bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between opacity-40">
+                                <span class="text-xs font-extrabold text-blue-700">ENLACE DE DATOS</span>
+                                <span id="term-link" class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-bold hidden">Trama (Frame)</span>
+                            </div>
+
+                            <!-- Capa 5: Física -->
+                            <div id="layer-phy" class="layer-box bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between opacity-40">
+                                <span class="text-xs font-extrabold text-blue-700">FÍSICA</span>
+                                <span id="term-phy" class="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-mono font-bold hidden">Bits / Ondas</span>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODAL GUÍA DOCENTE -->
+    <div id="infoModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white border-2 border-slate-200 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-graduation-cap text-blue-600"></i> Guía Pedagógica - Mgr. Gustavo Rojas Valdivia
+                </h3>
+                <button onclick="toggleModal('infoModal')" class="text-slate-400 hover:text-slate-700 transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="text-xs md:text-sm text-slate-600 space-y-3 leading-relaxed">
+                <p>Estimados estudiantes, este simulador unifica las diapositivas de clase con la topología real de red:</p>
+                <ul class="list-disc pl-5 space-y-1.5">
+                    <li><strong>Pasos 1 al 5 (Encapsulamiento):</strong> Muestra cómo se añaden las cabeceras HTTP, TCP, IP y Ethernet desde la PC emisora hacia el medio físico.</li>
+                    <li><strong>Paso 6 (Tránsito):</strong> Transmisión a nivel de Bits (010101...) a través del router y la nube WAN.</li>
+                    <li><strong>Pasos 7 al 10 (Desencapsulamiento):</strong> Muestra el proceso inverso en el Smartphone receptor retirando capa por capa hasta entregar los datos puros.</li>
+                </ul>
+            </div>
+            <div class="flex justify-end pt-2 border-t border-slate-100">
+                <button onclick="toggleModal('infoModal')" class="bg-blue-600 text-white px-6 py-2 rounded-xl text-xs font-bold shadow-md">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        const totalSteps = 10;
+
+        const steps = [
+            {
+                title: "ENVÍO DE DATOS: ENCAPSULAMIENTO",
+                mode: "Capa de Aplicación (Emisor)",
+                alertText: "Encapsulamiento",
+                activeLayer: "app",
+                activeNode: "pc",
+                activeLink: 0,
+                desc: "<strong>Capa de Aplicación:</strong> El usuario genera el mensaje original. Se añade la cabecera de protocolo de aplicación (ej. HTTP) a los datos puros.",
+                html: `
+                    <div class="flex items-center gap-2 w-full">
+                        <span class="bg-amber-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">HTTP</span>
+                        <span class="bg-blue-500 text-white font-mono text-xs px-4 py-2 rounded-xl flex-1 font-bold shadow text-center"><span class="payload-disp"></span></span>
+                    </div>
+                `
+            },
+            {
+                title: "ENVÍO DE DATOS: ENCAPSULAMIENTO",
+                mode: "Capa de Transporte (Segmento)",
+                alertText: "Encapsulamiento",
+                activeLayer: "trans",
+                activeNode: "pc",
+                activeLink: 1,
+                desc: "<strong>Capa de Transporte:</strong> Se añade la cabecera TCP o UDP (puertos de origen y destino). El conjunto pasa a denominarse <strong>Segmento</strong>.",
+                html: `
+                    <div class="flex flex-col gap-2 w-full">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-amber-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">TCP</span>
+                            <span class="bg-blue-500 text-white font-mono text-xs px-4 py-2 rounded-xl flex-1 font-bold shadow text-center"><span class="payload-disp"></span></span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "ENVÍO DE DATOS: ENCAPSULAMIENTO",
+                mode: "Capa de Red (Paquete IP)",
+                alertText: "Encapsulamiento",
+                activeLayer: "net",
+                activeNode: "router",
+                activeLink: 1,
+                desc: "<strong>Capa de Red:</strong> Se añade la cabecera IP con las direcciones lógicas de origen y destino. Ahora es un <strong>Paquete IP</strong> listo para enrutarse.",
+                html: `
+                    <div class="flex flex-col gap-2 w-full">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-orange-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">IP</span>
+                            <span class="bg-amber-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">TCP</span>
+                            <span class="bg-blue-500 text-white font-mono text-xs px-4 py-2 rounded-xl flex-1 font-bold shadow text-center"><span class="payload-disp"></span></span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "ENVÍO DE DATOS: ENCAPSULAMIENTO",
+                mode: "Capa de Enlace de Datos (Trama)",
+                alertText: "Encapsulamiento",
+                activeLayer: "link",
+                activeNode: "router",
+                activeLink: 2,
+                desc: "<strong>Capa de Enlace de Datos:</strong> Se adjunta la cabecera y el tráiler Ethernet (direcciones MAC y FCS). Se convierte en una <strong>Trama (Frame)</strong>.",
+                html: `
+                    <div class="flex flex-col gap-2 w-full">
+                        <div class="flex items-center gap-2">
+                            <span class="bg-emerald-600 text-white font-mono text-[11px] px-2.5 py-2 rounded-xl font-bold shadow">Ethernet</span>
+                            <span class="bg-orange-600 text-white font-mono text-[11px] px-2 py-2 rounded-xl font-bold shadow">IP</span>
+                            <span class="bg-amber-600 text-white font-mono text-[11px] px-2 py-2 rounded-xl font-bold shadow">TCP</span>
+                            <span class="bg-blue-500 text-white font-mono text-[11px] px-3 py-2 rounded-xl flex-1 font-bold shadow text-center truncate"><span class="payload-disp"></span></span>
+                            <span class="bg-emerald-600 text-white font-mono text-[11px] px-2.5 py-2 rounded-xl font-bold shadow">Ethernet</span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "TRANSMISIÓN FÍSICA EN EL MEDIO",
+                mode: "Capa Física (Bits y Ondas)",
+                alertText: "Transmisión",
+                activeLayer: "phy",
+                activeNode: "modem",
+                activeLink: 2,
+                desc: "<strong>Capa Física:</strong> La trama completa se convierte en una cadena de bits (01011101...) y señales eléctricas u ópticas que viajan a través del medio físico y la nube WAN.",
+                html: `
+                    <div class="flex flex-col items-center justify-center gap-3 py-4 w-full">
+                        <span class="bg-rose-600 text-white font-mono text-xs px-4 py-3 rounded-xl font-extrabold tracking-widest shadow animate-pulse">0110101011000101010100111100110011100011010111100101011</span>
+                        <div class="flex items-center gap-1 text-slate-500 text-xs">
+                            <i class="fa-solid fa-wave-square"></i> Transmisión a nivel de Bits en el medio
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "RECEPCIÓN DE DATOS: DESENCAPSULAMIENTO",
+                mode: "Capa Física (Receptor)",
+                alertText: "Desencapsulamiento",
+                activeLayer: "phy",
+                activeNode: "phone",
+                activeLink: 3,
+                desc: "<strong>Recepción Física:</strong> El dispositivo receptor capta las señales del medio y las reconstruye en bits binarios para enviarlas a la capa de enlace.",
+                html: `
+                    <div class="flex flex-col items-center justify-center gap-2 py-3 w-full">
+                        <span class="bg-rose-500 text-white font-mono text-xs px-4 py-2 rounded-xl font-bold tracking-widest shadow">Recepción de Bits en Smartphone...</span>
+                    </div>
+                `
+            },
+            {
+                title: "RECEPCIÓN DE DATOS: DESENCAPSULAMIENTO",
+                mode: "Capa de Enlace de Datos",
+                alertText: "Desencapsulamiento",
+                activeLayer: "link",
+                activeNode: "phone",
+                activeLink: 3,
+                desc: "<strong>Desencapsulamiento Capa 2:</strong> Se valida la dirección MAC de destino y <strong>se retira la cabecera Ethernet</strong>, pasando el paquete hacia arriba.",
+                html: `
+                    <div class="flex flex-col gap-2 w-full opacity-90">
+                        <div class="flex items-center justify-between text-[11px] text-rose-600 font-bold px-1">
+                            <span><i class="fa-solid fa-trash-can"></i> Cabecera Ethernet retirada</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-orange-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">IP</span>
+                            <span class="bg-amber-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">TCP</span>
+                            <span class="bg-blue-500 text-white font-mono text-xs px-4 py-2 rounded-xl flex-1 font-bold shadow text-center"><span class="payload-disp"></span></span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "RECEPCIÓN DE DATOS: DESENCAPSULAMIENTO",
+                mode: "Capa de Red (IP)",
+                alertText: "Desencapsulamiento",
+                activeLayer: "net",
+                activeNode: "phone",
+                activeLink: 3,
+                desc: "<strong>Desencapsulamiento Capa 3:</strong> Se comprueba la dirección IP de destino, <strong>se elimina la cabecera IP</strong> y se entrega el segmento a la capa de transporte.",
+                html: `
+                    <div class="flex flex-col gap-2 w-full opacity-90">
+                        <div class="flex items-center justify-between text-[11px] text-rose-600 font-bold px-1">
+                            <span><i class="fa-solid fa-trash-can"></i> Cabecera IP retirada</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-amber-600 text-white font-mono text-xs px-3 py-2 rounded-xl font-bold shadow">TCP</span>
+                            <span class="bg-blue-500 text-white font-mono text-xs px-4 py-2 rounded-xl flex-1 font-bold shadow text-center"><span class="payload-disp"></span></span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "RECEPCIÓN DE DATOS: DESENCAPSULAMIENTO",
+                mode: "Capa de Transporte",
+                alertText: "Desencapsulamiento",
+                activeLayer: "trans",
+                activeNode: "phone",
+                activeLink: 3,
+                desc: "<strong>Desencapsulamiento Capa 4:</strong> Se procesan los puertos y el número de secuencia, <strong>se remueve la cabecera TCP</strong> y se entregan los datos puros.",
+                html: `
+                    <div class="flex flex-col gap-2 w-full opacity-90">
+                        <div class="flex items-center justify-between text-[11px] text-rose-600 font-bold px-1">
+                            <span><i class="fa-solid fa-trash-can"></i> Cabecera TCP retirada</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="bg-blue-500 text-white font-mono text-xs px-4 py-2 rounded-xl flex-1 font-bold shadow text-center"><span class="payload-disp"></span></span>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                title: "RECEPCIÓN DE DATOS: FINALIZADO",
+                mode: "Capa de Aplicación (Destino Final)",
+                alertText: "Entrega Exitosa",
+                activeLayer: "app",
+                activeNode: "phone",
+                activeLink: 3,
+                desc: "<strong>Capa de Aplicación:</strong> El mensaje original llega limpio y completo al Smartphone receptor, completando con éxito el flujo de red.",
+                html: `
+                    <div class="flex flex-col items-center justify-center gap-2 py-4 w-full">
+                        <span class="bg-emerald-600 text-white font-mono text-sm px-6 py-3 rounded-xl font-extrabold shadow-lg">¡Mensaje Entregado: <span class="payload-disp"></span>!</span>
+                    </div>
+                `
+            }
+        ];
+
+        function toggleModal(modalId) {
+            document.getElementById(modalId).classList.toggle('hidden');
+        }
+
+        function updatePayloadText() {
+            const val = document.getElementById('payloadInput').value;
+            document.querySelectorAll('.payload-disp').forEach(el => el.textContent = val);
+        }
+
+        function startSimulation() {
+            currentStep = 1;
+            renderStep();
+        }
+
+        function resetSimulation() {
+            currentStep = 0;
+            renderStep();
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                renderStep();
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                renderStep();
+            }
+        }
+
+        function renderStep() {
+            const nextBtn = document.getElementById('nextBtn');
+            const prevBtn = document.getElementById('prevBtn');
+            const stepIndicator = document.getElementById('stepIndicator');
+            const currentModeBadge = document.getElementById('currentModeBadge');
+            const explanationText = document.getElementById('explanationText');
+            const slideTitleBox = document.getElementById('slideTitleBox');
+            const alertBadge = document.getElementById('alertBadge');
+            const alertText = document.getElementById('alertText');
+            const pduStackContainer = document.getElementById('pduStackContainer');
+            const topoStatusBadge = document.getElementById('topoStatusBadge');
+
+            stepIndicator.textContent = `${currentStep} / ${totalSteps}`;
+            updatePayloadText();
+
+            if (currentStep === 0) {
+                nextBtn.disabled = true;
+                prevBtn.disabled = true;
+                currentModeBadge.textContent = "En Espera";
+                explanationText.innerHTML = `Bienvenido docente. Presiona <strong>"Iniciar Simulación Completa"</strong> y utiliza el botón <strong>Siguiente</strong> para mostrar exactamente cómo se encapsulan los datos en el emisor y cómo se desencapsulan en el receptor tal como en tus láminas.`;
+                slideTitleBox.textContent = "ENVÍO DE DATOS: ENCAPSULAMIENTO";
+                pduStackContainer.innerHTML = `<div class="text-slate-400 text-xs italic text-center py-8">Haz clic en Iniciar Simulación para ver el diagrama PDU...</div>`;
+                topoStatusBadge.textContent = "Estado: Inactivo / Listo";
+                resetLayers();
+                resetTopoNodes();
+                resetLinks();
+                return;
+            }
+
+            nextBtn.disabled = currentStep >= totalSteps;
+            prevBtn.disabled = currentStep <= 1;
+
+            const st = steps[currentStep - 1];
+            slideTitleBox.textContent = st.title;
+            currentModeBadge.textContent = st.mode;
+            explanationText.innerHTML = st.desc;
+            alertText.textContent = st.alertText;
+            
+            if(st.alertText === "Desencapsulamiento") {
+                alertBadge.className = "bg-purple-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg shadow-sm flex items-center gap-1.5";
+            } else if(st.alertText === "Transmisión") {
+                alertBadge.className = "bg-rose-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg shadow-sm flex items-center gap-1.5";
+            } else {
+                alertBadge.className = "bg-blue-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg shadow-sm flex items-center gap-1.5";
+            }
+
+            pduStackContainer.innerHTML = st.html;
+            updatePayloadText();
+
+            topoStatusBadge.textContent = `Fase Activa: ${st.mode}`;
+
+            highlightLayer(st.activeLayer);
+            highlightTopoNode(st.activeNode);
+            animateLinks(st.activeLink);
+        }
+
+        function resetLayers() {
+            ['app', 'trans', 'net', 'link', 'phy'].forEach(id => {
+                const el = document.getElementById(`layer-${id}`);
+                const term = document.getElementById(`term-${id}`);
+                el.className = "layer-box bg-slate-50 border-2 border-slate-200 rounded-xl p-3 flex items-center justify-between opacity-40";
+                if(term) term.classList.add('hidden');
+            });
+        }
+
+        function highlightLayer(activeId) {
+            resetLayers();
+            const map = { app: 1, trans: 2, net: 3, link: 4, phy: 5 };
+            const activeLevel = map[activeId];
+
+            ['app', 'trans', 'net', 'link', 'phy'].forEach(id => {
+                const el = document.getElementById(`layer-${id}`);
+                const term = document.getElementById(`term-${id}`);
+                const lvl = map[id];
+
+                if (id === activeId) {
+                    el.className = "layer-box bg-blue-50 border-2 border-blue-600 rounded-xl p-3 flex items-center justify-between shadow-md opacity-100 scale-[1.01]";
+                    if(term) term.classList.remove('hidden');
+                } else if (lvl < activeLevel) {
+                    el.className = "layer-box bg-slate-100 border-2 border-slate-300 rounded-xl p-3 flex items-center justify-between opacity-70";
+                    if(term) term.classList.remove('hidden');
+                }
+            });
+        }
+
+        function resetTopoNodes() {
+            ['topo-pc', 'topo-router', 'topo-modem', 'topo-phone'].forEach(id => {
+                document.getElementById(id).className = "topo-node flex flex-col items-center p-3 rounded-2xl border border-slate-300 bg-white text-center shadow-sm";
+            });
+        }
+
+        function highlightTopoNode(nodeKey) {
+            resetTopoNodes();
+            let targetId = 'topo-pc';
+            if(nodeKey === 'router') targetId = 'topo-router';
+            if(nodeKey === 'modem') targetId = 'topo-modem';
+            if(nodeKey === 'phone') targetId = 'topo-phone';
+
+            const el = document.getElementById(targetId);
+            el.className = "topo-node flex flex-col items-center p-3 rounded-2xl border-2 border-blue-600 bg-blue-50 text-center shadow-lg scale-105";
+        }
+
+        function resetLinks() {
+            for(let i=1; i<=3; i++) {
+                const l = document.getElementById(`link${i}`);
+                if(l) l.style.opacity = '0';
+            }
+        }
+
+        function animateLinks(activeLinkIndex) {
+            resetLinks();
+            for(let i=1; i<=activeLinkIndex; i++) {
+                const l = document.getElementById(`link${i}`);
+                if(l) {
+                    l.style.opacity = '1';
+                    l.classList.add('animate-pulse');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
